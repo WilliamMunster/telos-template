@@ -32,6 +32,18 @@ VAULT_PATH="${VAULT_PATH:-$HOME/Documents/Obsidian Vault}"
 PROJECT_DIR="${PROJECT_DIR:-$HOME/project}"
 SUPPORTED_CLIS=""
 
+# Identity onboarding (Phase 2) defaults — empty means "keep placeholder"
+CURRENT_POSITION=""
+SHORT_TERM_GOAL=""
+MID_TERM_GOAL=""
+CORE_SKILLS=""       # comma-separated, max 3
+MISSION_STATEMENT=""
+CURRENT_CHALLENGE=""
+# Projects collected as arrays
+declare -a PROJECT_NAMES=()
+declare -a PROJECT_STACKS=()
+declare -a PROJECT_DESCS=()
+
 # ─── Help ─────────────────────────────────────────────────────────────
 show_help() {
   cat << 'EOF'
@@ -155,6 +167,120 @@ run_onboarding() {
   ok "CLI: $SUPPORTED_CLIS"
 }
 
+# ─── Step 3b: run_identity_onboarding (Phase 2) ─────────────────────
+run_identity_onboarding() {
+  step "=== 身份定义（阶段二） ==="
+  echo "接下来完善你的身份信息，每步都可以直接回车跳过。"
+  echo ""
+
+  # [1] Current position
+  echo -e "${BOLD}[1/7] 当前职位/公司？（例：高级工程师 @ Google）${NC}"
+  read -r -p "> " input
+  [ -n "$input" ] && CURRENT_POSITION="$input"
+  if [ -n "$CURRENT_POSITION" ]; then
+    ok "职位: $CURRENT_POSITION"
+  else
+    info "跳过"
+  fi
+  echo ""
+
+  # [2] Short-term goal
+  echo -e "${BOLD}[2/7] 短期目标？（3-6 个月内想达成的）${NC}"
+  read -r -p "> " input
+  [ -n "$input" ] && SHORT_TERM_GOAL="$input"
+  if [ -n "$SHORT_TERM_GOAL" ]; then
+    ok "短期目标: $SHORT_TERM_GOAL"
+  else
+    info "跳过"
+  fi
+  echo ""
+
+  # [3] Mid-term goal
+  echo -e "${BOLD}[3/7] 中期目标？（1-2 年内想达成的）${NC}"
+  read -r -p "> " input
+  [ -n "$input" ] && MID_TERM_GOAL="$input"
+  if [ -n "$MID_TERM_GOAL" ]; then
+    ok "中期目标: $MID_TERM_GOAL"
+  else
+    info "跳过"
+  fi
+  echo ""
+
+  # [4] Core skills
+  echo -e "${BOLD}[4/7] 核心能力？（逗号分隔，最多 3 个，例：后端开发,系统设计,团队管理）${NC}"
+  read -r -p "> " input
+  [ -n "$input" ] && CORE_SKILLS="$input"
+  if [ -n "$CORE_SKILLS" ]; then
+    ok "核心能力: $CORE_SKILLS"
+  else
+    info "跳过"
+  fi
+  echo ""
+
+  # [5] Mission
+  echo -e "${BOLD}[5/7] 使命（一句话描述你想通过工作实现什么）${NC}"
+  read -r -p "> " input
+  [ -n "$input" ] && MISSION_STATEMENT="$input"
+  if [ -n "$MISSION_STATEMENT" ]; then
+    ok "使命: $MISSION_STATEMENT"
+  else
+    info "跳过"
+  fi
+  echo ""
+
+  # [6] Current challenge
+  echo -e "${BOLD}[6/7] 当前最大的挑战是什么？${NC}"
+  read -r -p "> " input
+  [ -n "$input" ] && CURRENT_CHALLENGE="$input"
+  if [ -n "$CURRENT_CHALLENGE" ]; then
+    ok "挑战: $CURRENT_CHALLENGE"
+  else
+    info "跳过"
+  fi
+  echo ""
+
+  # [7] Projects (multi-entry)
+  echo -e "${BOLD}[7/7] 当前项目（可输入多个，空行结束）${NC}"
+  echo "  格式：项目名 / 技术栈 / 说明"
+  echo "  例：my-app / React + Node / 个人博客"
+  echo ""
+  while true; do
+    read -r -p "  > " input
+    [ -z "$input" ] && break
+    # Parse: name / stack / desc
+    local p_name p_stack p_desc
+    p_name="$(echo "$input" | cut -d'/' -f1 | xargs)"
+    p_stack="$(echo "$input" | cut -d'/' -f2 | xargs 2>/dev/null)"
+    p_desc="$(echo "$input" | cut -d'/' -f3- | xargs 2>/dev/null)"
+    [ -z "$p_name" ] && continue
+    PROJECT_NAMES+=("$p_name")
+    PROJECT_STACKS+=("${p_stack:-}")
+    PROJECT_DESCS+=("${p_desc:-}")
+    ok "  项目: $p_name"
+  done
+  if [ ${#PROJECT_NAMES[@]} -eq 0 ]; then
+    info "跳过项目"
+  fi
+  echo ""
+
+  # Print summary
+  step "=== 身份信息摘要 ==="
+  [ -n "$CURRENT_POSITION" ] && echo "  职位:     $CURRENT_POSITION"
+  [ -n "$SHORT_TERM_GOAL" ]  && echo "  短期目标: $SHORT_TERM_GOAL"
+  [ -n "$MID_TERM_GOAL" ]    && echo "  中期目标: $MID_TERM_GOAL"
+  [ -n "$CORE_SKILLS" ]      && echo "  核心能力: $CORE_SKILLS"
+  [ -n "$MISSION_STATEMENT" ] && echo "  使命:     $MISSION_STATEMENT"
+  [ -n "$CURRENT_CHALLENGE" ] && echo "  挑战:     $CURRENT_CHALLENGE"
+  if [ ${#PROJECT_NAMES[@]} -gt 0 ]; then
+    echo "  项目:"
+    for i in "${!PROJECT_NAMES[@]}"; do
+      echo "    - ${PROJECT_NAMES[$i]}"
+    done
+  fi
+  echo ""
+  ok "身份信息收集完成"
+}
+
 # ─── Step 4: create_directories ──────────────────────────────────────
 create_directories() {
   step "[目录结构] 创建 vault 目录..."
@@ -204,11 +330,22 @@ generate_telos_files() {
   step "[身份系统] 生成 _telos/ 模板文件..."
 
   local telos_dir="$SCRIPT_DIR/_telos"
+  local today
+  today="$(date +%Y-%m-%d)"
 
-  # Only do variable substitution on files that contain template placeholders
-  # Other _telos/ files are created by the template itself (Agent 1)
+  # Phase 1: basic variable substitution
   for f in "$telos_dir"/*.md; do
     [ -f "$f" ] || continue
+
+    # Date placeholders
+    sed -i.bak \
+      -e "s/{{DATE}}/$today/g" \
+      -e "s/{{YEAR}}/$(date +%Y)/g" \
+      -e "s/{{MONTH}}/$(date +%m)/g" \
+      "$f"
+    rm -f "$f.bak"
+
+    # Basic identity
     if grep -q '\[你的名字\]' "$f" 2>/dev/null; then
       sed -i.bak "s/\[你的名字\]/$USER_NAME/g" "$f"
       rm -f "$f.bak"
@@ -222,6 +359,93 @@ generate_telos_files() {
       rm -f "$f.bak"
     fi
   done
+
+  # Phase 2: identity onboarding substitution (only if values were collected)
+  if [ -n "$CURRENT_POSITION" ]; then
+    sed -i.bak "s|\[你的当前职位/公司\]|$CURRENT_POSITION|g" "$telos_dir/identity.md"
+    rm -f "$telos_dir/identity.md.bak"
+  fi
+
+  if [ -n "$SHORT_TERM_GOAL" ]; then
+    sed -i.bak "s|\[你的短期目标\]|$SHORT_TERM_GOAL|g" "$telos_dir/identity.md"
+    rm -f "$telos_dir/identity.md.bak"
+    # Also update goals.md O1
+    sed -i.bak "s|\[你的第一个目标\]|$SHORT_TERM_GOAL|g" "$telos_dir/goals.md"
+    rm -f "$telos_dir/goals.md.bak"
+  fi
+
+  if [ -n "$MID_TERM_GOAL" ]; then
+    sed -i.bak "s|\[你的中期目标\]|$MID_TERM_GOAL|g" "$telos_dir/identity.md"
+    rm -f "$telos_dir/identity.md.bak"
+    # Also update goals.md O2
+    sed -i.bak "s|\[你的第二个目标\]|$MID_TERM_GOAL|g" "$telos_dir/goals.md"
+    rm -f "$telos_dir/goals.md.bak"
+  fi
+
+  # Core skills → identity.md capability table
+  if [ -n "$CORE_SKILLS" ]; then
+    local IFS_OLD="$IFS"
+    IFS=',' read -ra skills <<< "$CORE_SKILLS"
+    IFS="$IFS_OLD"
+    local idx=1
+    for skill in "${skills[@]}"; do
+      skill="$(echo "$skill" | xargs)"  # trim whitespace
+      [ -z "$skill" ] && continue
+      if [ $idx -le 3 ]; then
+        sed -i.bak "s|\[技能维度${idx}\]|$skill|g" "$telos_dir/identity.md"
+        rm -f "$telos_dir/identity.md.bak"
+        idx=$((idx + 1))
+      fi
+    done
+  fi
+
+  # Mission → mission.md
+  if [ -n "$MISSION_STATEMENT" ]; then
+    sed -i.bak "s|\[你的使命宣言\]|$MISSION_STATEMENT|g" "$telos_dir/mission.md"
+    rm -f "$telos_dir/mission.md.bak"
+  fi
+
+  # Challenge → challenges.md
+  if [ -n "$CURRENT_CHALLENGE" ]; then
+    sed -i.bak "s|\[挑战标题\]|$CURRENT_CHALLENGE|g" "$telos_dir/challenges.md"
+    rm -f "$telos_dir/challenges.md.bak"
+    # Clear the description placeholder with a reasonable default
+    sed -i.bak "s|\[挑战描述.*\]|待补充具体描述和应对策略|g" "$telos_dir/challenges.md"
+    rm -f "$telos_dir/challenges.md.bak"
+  fi
+
+  # Projects → projects.md
+  if [ ${#PROJECT_NAMES[@]} -gt 0 ]; then
+    local first_name="${PROJECT_NAMES[0]}"
+    local first_stack="${PROJECT_STACKS[0]:-}"
+    local first_desc="${PROJECT_DESCS[0]:-}"
+    # Use python for reliable replacement of the first placeholder project row
+    python3 -c "
+import re, sys
+with open('$telos_dir/projects.md', 'r') as f:
+    content = f.read()
+# Replace the first personal project placeholder row
+content = content.replace(
+    '| **[项目名]** | ⬜ | [技术栈] | [说明] | [设备] |',
+    '| **${first_name}** | ⬜ | ${first_stack} | ${first_desc} | all |',
+    1
+)
+with open('$telos_dir/projects.md', 'w') as f:
+    f.write(content)
+"
+
+    # Append additional projects after the telos row
+    if [ ${#PROJECT_NAMES[@]} -gt 1 ]; then
+      for i in $(seq 1 $((${#PROJECT_NAMES[@]} - 1))); do
+        local pn="${PROJECT_NAMES[$i]}"
+        local ps="${PROJECT_STACKS[$i]:-}"
+        local pd="${PROJECT_DESCS[$i]:-}"
+        sed -i.bak "/\*\*telos\*\*/a\\
+| **${pn}** | ⬜ | ${ps} | ${pd} | all |" "$telos_dir/projects.md"
+        rm -f "$telos_dir/projects.md.bak"
+      done
+    fi
+  fi
 
   ok "_telos/ 文件变量替换完成"
 }
@@ -556,6 +780,17 @@ main() {
   # 2. Interactive onboarding (or use defaults)
   if [ "$NON_INTERACTIVE" = false ]; then
     run_onboarding
+
+    # Phase 2: Identity onboarding (optional)
+    echo ""
+    echo -e "${BOLD}基础配置完成！是否继续完善身份信息？${NC}"
+    echo "  身份信息会填充 _telos/ 下的模板文件，也可以稍后手动编辑。"
+    read -r -p "继续？[Y/n] " answer
+    if [[ ! "$answer" =~ ^[Nn]$ ]]; then
+      run_identity_onboarding
+    else
+      info "跳过身份定义，你可以稍后编辑 _telos/ 文件"
+    fi
   else
     info "非交互模式：使用默认值或环境变量"
     info "USER_NAME=$USER_NAME, ROLE=$ROLE, LANGUAGE=$LANGUAGE"
@@ -587,7 +822,7 @@ main() {
   echo -e "${GREEN}${BOLD}=== 设置完成！ ===${NC}"
   echo ""
   echo "下一步："
-  echo "  1. 编辑 _telos/ 下的文件，补充你的身份信息"
+  echo "  1. 查看 _telos/ 下的文件，补充或调整你的身份信息"
   echo "  2. 启动你的 AI CLI（如 claude），上下文会自动加载"
   echo "  3. 试试 /daily-log 记录你的第一条日志"
   echo ""

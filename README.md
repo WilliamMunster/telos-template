@@ -1,3 +1,5 @@
+[中文](README.zh-CN.md) | English
+
 # telos — Personal AI Identity System
 
 > A structured framework for maintaining consistent AI assistant behavior across multiple CLI tools.
