@@ -1,0 +1,80 @@
+# telos Security Patterns
+# PreToolUse hook reads this file to validate commands and paths
+
+bash:
+  # Hard block — exit 2, operation denied
+  blocked:
+    - pattern: "rm -rf /"
+      reason: "Filesystem destruction"
+    - pattern: "rm -rf ~"
+      reason: "Home directory destruction"
+    - pattern: "rm -rf.*$PROJECT_DIR"
+      reason: "Project directory destruction"
+    - pattern: "rm -rf.*/project"
+      reason: "Project directory destruction"
+    - pattern: "rm -rf \\*$"
+      reason: "Wildcard deletion"
+    - pattern: "mkfs\\."
+      reason: "Disk formatting"
+    - pattern: "diskutil eraseDisk"
+      reason: "Disk destruction"  # macOS-only
+    - pattern: "dd if=.* of=/dev/"
+      reason: "Raw disk write"
+    - pattern: "gh repo delete"
+      reason: "Repository deletion"
+    - pattern: ":(){ :|:& };:"
+      reason: "Fork bomb"
+    - pattern: "chmod -R 777"
+      reason: "Dangerous permission change"
+    - pattern: "npm publish"
+      reason: "Package publishing"
+
+  # Confirm — prompt user before proceeding
+  confirm:
+    - pattern: "git push.*--force"
+      reason: "Force push can lose commits"
+    - pattern: "git push.*-f"
+      reason: "Force push can lose commits"
+    - pattern: "git reset --hard"
+      reason: "Discards uncommitted changes"
+    - pattern: "git clean -fd"
+      reason: "Deletes untracked files"
+    - pattern: "docker system prune"
+      reason: "Removes all unused containers/images"
+    - pattern: "DROP TABLE"
+      reason: "Database table deletion"
+    - pattern: "DROP DATABASE"
+      reason: "Database deletion"
+    - pattern: "truncate"
+      reason: "Data truncation"
+    - pattern: "rm -rf"
+      reason: "Recursive forced deletion"
+
+  # Alert — log but allow
+  alert:
+    - pattern: "curl.*\\|.*sh"
+      reason: "Piping curl to shell"
+    - pattern: "wget.*\\|.*sh"
+      reason: "Piping wget to shell"
+
+paths:
+  # Block all access
+  blocked:
+    - "~/.ssh/id_*"
+    - "~/.aws/credentials"
+    - "~/.gnupg/private*"
+    - "**/credentials.json"
+    - "**/.env.production"
+
+  # Block write/delete, allow read
+  read_only:
+    - "/etc/**"
+    - "/usr/**"
+
+  # Prompt on write
+  confirm_write:
+    - "**/.env"
+    - "**/.env.*"
+    - "**/.gitignore"
+    - "**/package-lock.json"
+    - "**/yarn.lock"

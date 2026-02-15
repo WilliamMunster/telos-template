@@ -1,0 +1,9 @@
+.DS_Store
+.obsidian/
+node_modules/
+*.bak
+*.tmp
+_journal/daily/*.md
+_journal/weekly/*.md
+!_journal/daily/.gitkeep
+!_journal/weekly/.gitkeep
