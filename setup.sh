@@ -95,6 +95,10 @@ detect_installed_clis() {
     INSTALLED_CLIS="$INSTALLED_CLIS codex"
     ok "Codex CLI"
   fi
+  if command -v kimi &>/dev/null || [ -d "$HOME/.kimi" ]; then
+    INSTALLED_CLIS="$INSTALLED_CLIS kimi"
+    ok "Kimi CLI"
+  fi
 
   INSTALLED_CLIS="$(echo "$INSTALLED_CLIS" | xargs)"
 

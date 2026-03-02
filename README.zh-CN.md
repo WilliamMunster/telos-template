@@ -6,7 +6,7 @@
 
 ## telos 是什么？
 
-telos 是基于 Obsidian vault（或任何纯文本文件夹）的个人 AI 基础设施模板。它为你的 AI CLI 工具 — Claude Code、Gemini CLI、opencode、Codex CLI — 提供持久化的上下文：你是谁、在做什么、如何做决策。
+telos 是基于 Obsidian vault（或任何纯文本文件夹）的个人 AI 基础设施模板。它为你的 AI CLI 工具 — Claude Code、Gemini CLI、opencode、Codex CLI、Kimi — 提供持久化的上下文：你是谁、在做什么、如何做决策。
 
 ```
 没有 telos：  每次会话 → 从零开始 → 重复解释 → 低效
@@ -35,9 +35,51 @@ telos 是基于 Obsidian vault（或任何纯文本文件夹）的个人 AI 基�
 - **三层记忆** — 热（会话）→ 温（日志）→ 冷（身份），自动沉淀
 - **会话日志** — 自动生成每日笔记和每周回顾
 - **安全围栏** — 基于 hook 的可配置命令校验（blocked/confirm/alert 三级）
-- **多 CLI 支持** — Claude Code、Gemini CLI、opencode、Codex CLI
+- **多 CLI 支持** — Claude Code、Gemini CLI、opencode、Codex CLI、Kimi
+- **多 CLI 协作** — telos-swarm 支持 Arena、Brainstorm、Pair、Free 四种模式
 - **斜杠命令** — daily-log、weekly-review、decision-helper、knowledge-capture 等
+- **6 个预装技能** — TDD、MCP Builder、Token Efficiency、Writing Plans、Snapshot、telos-swarm
+- **Vault 分析工具** — 链接分析器、日志链接器
 - **Hook 系统** — 会话生命周期、安全校验、通知
+
+---
+
+## 多 CLI 协作：telos-swarm
+
+telos-swarm 协调多个 AI CLI 协同完成复杂任务。无需手动切换工具，定义任务后让 agent 自动协作。
+
+### 协作模式
+
+| 模式 | 描述 | 适用场景 |
+|------|------|----------|
+| Arena | 辩论模式：分析 → 交叉评审 → 综合 | 方案对比、架构决策 |
+| Brainstorm | 协作头脑风暴：分析 → 综合 | 命名、创意探索、功能构思 |
+| Pair | 驾驶员-领航员模式：编码 → 评审 → 修订 | 带内置代码评审的实现 |
+| Free | 自定义任务链与依赖管理 | 复杂多步骤工作流 |
+
+### 核心能力
+
+- 任务系统，支持依赖链和自动分发
+- 质量门禁（最小行数、结构校验、错误检测）
+- 每个 agent 独立的 Git worktree 隔离
+- 质量门禁失败时自动故障转移
+- 生命周期钩子（swarm_start、swarm_stop、task_complete、arena_complete）
+- 基于 YAML 的配置
+
+### 快速示例
+
+```bash
+# Claude 和 Gemini 之间的 Arena 辩论
+telos-swarm arena --auto --claude --gemini "API design approach"
+
+# 3 个 CLI 协作头脑风暴
+telos-swarm brainstorm --auto --claude --gemini --kimi "Product naming"
+
+# 自定义任务链
+telos-swarm task add --type coding --assign claude "Implement auth module"
+telos-swarm task add --type review --assign gemini --depends 001 "Review auth implementation"
+telos-swarm task dispatch
+```
 
 ---
 
@@ -83,7 +125,7 @@ graph TB
 
 ### 前置条件
 
-- 至少一个 AI CLI 工具（Claude Code / Gemini CLI / opencode / Codex CLI）
+- 至少一个 AI CLI 工具（Claude Code / Gemini CLI / opencode / Codex CLI / Kimi）
 - Git
 - 可选：Obsidian 1.12+（增强体验，非必需）
 
@@ -277,6 +319,7 @@ alert:     # 记录告警
 | Gemini CLI | `~/.gemini/GEMINI.md` | .toml（自动转换） | shell hooks | auto-discover |
 | opencode | `~/.config/opencode/AGENTS.md` | .md | JS plugin | auto-discover |
 | Codex CLI | `~/.codex/AGENTS.md` | — | — | symlink |
+| Kimi（实验性） | AGENTS.md（vault 根目录） | — | — | 手动（`--skills-dir`） |
 
 ---
 
@@ -302,12 +345,30 @@ telos-template/
 │   │   ├── shared.md          # 所有 CLI 共享
 │   │   ├── claude-specific.md
 │   │   ├── gemini-specific.md
-│   │   └── opencode-specific.md
+│   │   ├── opencode-specific.md
+│   │   ├── codex-specific.md
+│   │   ├── kimi-specific.md
+│   │   └── ...                # 可选模块化指令
 │   ├── commands/              # 斜杠命令
 │   ├── hooks/                 # Hook 框架
 │   │   ├── adapters/          # CLI 适配器
+│   │   │   ├── claude/
+│   │   │   ├── gemini/
+│   │   │   ├── opencode/
+│   │   │   └── kimi/
 │   │   └── lib/               # 共享库
-│   ├── skills/                # 社区技能（按需安装）
+│   ├── scripts/               # 工具和编排器
+│   │   ├── telos-swarm/       # 多 CLI 编排器（Arena/Brainstorm/Pair/Free）
+│   │   ├── journal-link.sh
+│   │   ├── link-analyzer.sh
+│   │   └── link-analyzer-README.md
+│   ├── skills/                # Agent 技能
+│   │   ├── tdd/               # 测试驱动开发
+│   │   ├── mcp-builder/       # MCP 服务器开发
+│   │   ├── snapshot/          # 状态快照工具
+│   │   ├── telos-swarm/       # Swarm 编排参考
+│   │   ├── writing-plans/
+│   │   └── token-efficiency/
 │   ├── security-patterns.yaml # 安全规则
 │   ├── config.env             # 用户配置
 │   └── sync.sh                # 同步脚本
@@ -324,6 +385,19 @@ telos-template/
 ├── .gitignore
 └── LICENSE
 ```
+
+---
+
+## 预装技能
+
+| 技能 | 描述 | 文件数 |
+|------|------|--------|
+| tdd | 测试驱动开发方法论 | 30+ 参考文档 |
+| mcp-builder | MCP 服务器开发指南 | 10 个文件 |
+| telos-swarm | 多 CLI 编排参考 | 2 个文件 |
+| writing-plans | 结构化规划工作流 | 1 个文件 |
+| token-efficiency | Token 优化实践 | 1 个文件 |
+| snapshot | 状态快照工具 | 2 个文件 |
 
 ---
 

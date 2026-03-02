@@ -6,7 +6,7 @@
 
 ## What is telos?
 
-telos is a personal AI infrastructure template built on top of an Obsidian vault (or any plain-text folder). It gives your AI CLI tools — Claude Code, Gemini CLI, opencode, Codex CLI — persistent context about who you are, what you're working on, and how you make decisions.
+telos is a personal AI infrastructure template built on top of an Obsidian vault (or any plain-text folder). It gives your AI CLI tools — Claude Code, Gemini CLI, opencode, Codex CLI, and Kimi — persistent context about who you are, what you're working on, and how you make decisions.
 
 **Before telos:** Every AI conversation starts from zero. You repeat your goals, explain your projects, and re-state your preferences every single session.
 
@@ -19,9 +19,49 @@ The core idea is simple: AI shouldn't be stateless. Your time and context are va
 - Identity System — persistent beliefs, goals, strategies, and mental models
 - Session Logging — automatic daily notes and weekly reviews
 - Security Guardrails — configurable command validation via hook-based security patterns
-- Multi-CLI Support — Claude Code, Gemini CLI, opencode, Codex CLI
+- Multi-CLI Support — Claude Code, Gemini CLI, opencode, Codex CLI, Kimi
+- Multi-CLI Orchestration — telos-swarm with Arena, Brainstorm, Pair, and Free modes
 - Slash Commands — daily-log, weekly-review, decision-helper, knowledge-capture, and more
+- 6 Pre-installed Skills — TDD, MCP Builder, Token Efficiency, Writing Plans, Snapshot, telos-swarm
+- Vault Analysis Tools — link analyzer, journal linker
 - Hook System — session lifecycle, security validation, notifications
+
+## Multi-CLI Orchestration with telos-swarm
+
+telos-swarm coordinates multiple AI CLIs to work together on complex tasks. Instead of switching between tools manually, define a task and let agents collaborate.
+
+### Orchestration Modes
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| Arena | Debate format: analysis → cross-review → synthesis | Comparing approaches, architecture decisions |
+| Brainstorm | Collaborative ideation: analysis → synthesis | Naming, creative exploration, feature ideas |
+| Pair | Driver-navigator: coding → review → revision | Implementation with built-in code review |
+| Free | Custom task chains with dependency management | Complex multi-step workflows |
+
+### Core Capabilities
+
+- Task system with dependency chains and auto-dispatch
+- Quality gates (min lines, structure validation, error detection)
+- Git worktree isolation per agent
+- Automatic failover on quality gate failure
+- Lifecycle hooks (swarm_start, swarm_stop, task_complete, arena_complete)
+- YAML-based configuration
+
+### Quick Examples
+
+```bash
+# Arena debate between Claude and Gemini
+telos-swarm arena --auto --claude --gemini "API design approach"
+
+# Brainstorm with 3 CLIs
+telos-swarm brainstorm --auto --claude --gemini --kimi "Product naming"
+
+# Custom task chain
+telos-swarm task add --type coding --assign claude "Implement auth module"
+telos-swarm task add --type review --assign gemini --depends 001 "Review auth implementation"
+telos-swarm task dispatch
+```
 
 ## Quick Start
 
@@ -74,15 +114,30 @@ telos-template/
 │   │   ├── shared.md          # Shared across all CLIs
 │   │   ├── claude-specific.md
 │   │   ├── gemini-specific.md
-│   │   └── opencode-specific.md
+│   │   ├── opencode-specific.md
+│   │   ├── codex-specific.md
+│   │   ├── kimi-specific.md
+│   │   └── ...                # Optional modular instructions
 │   ├── commands/              # Slash commands
 │   ├── hooks/                 # Hook framework
 │   │   ├── adapters/          # CLI-specific adapters
 │   │   │   ├── claude/
 │   │   │   ├── gemini/
-│   │   │   └── opencode/
+│   │   │   ├── opencode/
+│   │   │   └── kimi/
 │   │   └── lib/               # Shared libraries
-│   ├── skills/                # Community skills (install your own)
+│   ├── scripts/               # Tools and orchestrator
+│   │   ├── telos-swarm/       # Multi-CLI orchestrator (Arena/Brainstorm/Pair/Free)
+│   │   ├── journal-link.sh
+│   │   ├── link-analyzer.sh
+│   │   └── link-analyzer-README.md
+│   ├── skills/                # Agent skills
+│   │   ├── tdd/               # Test-Driven Development
+│   │   ├── mcp-builder/       # MCP server development
+│   │   ├── snapshot/          # State snapshot tool
+│   │   ├── telos-swarm/       # Swarm orchestration reference
+│   │   ├── writing-plans/
+│   │   └── token-efficiency/
 │   ├── security-patterns.yaml # Security rules
 │   ├── config.env             # User configuration
 │   └── sync.sh                # Sync script
@@ -107,6 +162,7 @@ telos-template/
 | Gemini CLI | `~/.gemini/GEMINI.md` | .toml (auto-converted) | shell hooks | auto-discover |
 | opencode | `~/.config/opencode/AGENTS.md` | .md | JS plugin | auto-discover |
 | Codex CLI | `~/.codex/AGENTS.md` | — | — | symlink |
+| Kimi (Experimental) | AGENTS.md (vault root) | — | — | manual (`--skills-dir`) |
 
 ## Customization
 
@@ -122,9 +178,16 @@ Create a `.md` file in `_agents/commands/`, then run `_agents/sync.sh link` to s
 
 Install community skills into `_agents/skills/`, then run `_agents/sync.sh link`. Skills are domain-specific extensions (TDD, architecture patterns, etc.) that you install based on your needs.
 
-### Custom keyword triggers
+## Included Skills
 
-Edit `_agents/config/keyword-map.yaml` to add project-specific keywords for automatic context injection during sessions.
+| Skill | Description | Files |
+|-------|-------------|-------|
+| tdd | Test-Driven Development methodology | 30+ reference docs |
+| mcp-builder | MCP server development guide | 10 files |
+| telos-swarm | Multi-CLI orchestration reference | 2 files |
+| writing-plans | Structured planning workflow | 1 file |
+| token-efficiency | Token optimization practices | 1 file |
+| snapshot | State snapshot tool | 2 files |
 
 ## Philosophy
 

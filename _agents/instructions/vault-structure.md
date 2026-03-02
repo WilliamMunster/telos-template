@@ -1,6 +1,8 @@
-# Shared Instructions
+# telos Vault Structure
 
-## Vault Structure
+> 按需加载文档：当需要了解 vault 目录结构、文件组织方式时注入
+
+## Directory Structure
 
 ```
 _telos/          — identity, goals, beliefs, projects, lessons
@@ -19,17 +21,18 @@ knowledge/       — tech knowledge, references
 attachments/     — images
 ```
 
-## Obsidian CLI
+## Key Files
 
-This vault is managed by Obsidian 1.12+ with CLI enabled:
+- `_telos/identity.md` — 个人身份定义（职业轨迹、核心能力）
+- `_telos/goals.md` — 当前 OKR 目标追踪
+- `_telos/beliefs.md` — 决策原则和工作方式
+- `_telos/lessons.md` — 踩坑记录
+- `_telos/projects.md` — 项目清单和路径
+- `_telos/worklog.md` — 活跃工作项追踪
+- `_agents/sync.sh` — 配置生成脚本
 
-```
-OBS="{{OBSIDIAN_PATH}}"
-$OBS read file=<name>           # read a note
-$OBS search query=<text>        # search vault
-$OBS daily:append content=<text> # append to daily note
-$OBS tags all counts            # list tags
-$OBS backlinks file=<name>      # check backlinks
-```
+## File Organization Principles
 
-If Obsidian is not running, fall back to direct file operations on the vault directory.
+- Obsidian 是知识中枢：原子化笔记 + 链接织网
+- 不合并，用链接关联
+- 项目统一存放 `~/project/`
