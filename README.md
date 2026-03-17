@@ -14,9 +14,20 @@ telos is a personal AI infrastructure template built on top of an Obsidian vault
 
 The core idea is simple: AI shouldn't be stateless. Your time and context are valuable. telos turns your AI CLI from a generic tool into a partner that understands your world.
 
+## Design Philosophy
+
+Built on the PAI (Personal AI Infrastructure) methodology, implemented with Obsidian + Git + Shell scripts:
+
+1. **Single source of truth** — One Git repo = Obsidian vault = AI config hub
+2. **Identity as configuration** — Your role, decision principles are not scattered notes, but system instructions loaded every time AI starts
+3. **Layered memory** — Hot/Warm/Cold three-layer memory with different lifecycles and sedimentation mechanisms
+4. **Multi-CLI unification** — One set of source files, sync.sh generates each CLI's config format
+5. **Security first** — Three-level security validation intercepts dangerous operations, hard blocks on critical paths
+
 ## Features
 
 - Identity System — persistent beliefs, goals, strategies, and mental models
+- Three-Layer Memory — Hot (session) → Warm (journal) → Cold (identity), automatic sedimentation
 - Session Logging — automatic daily notes and weekly reviews
 - Security Guardrails — configurable command validation via hook-based security patterns
 - Multi-CLI Support — Claude Code, Gemini CLI, opencode, Codex CLI, Kimi
@@ -63,7 +74,194 @@ telos-swarm task add --type review --assign gemini --depends 001 "Review auth im
 telos-swarm task dispatch
 ```
 
+## Core Systems
+
+### TELOS Identity System (`_telos/`)
+
+TELOS answers a fundamental question: **With what identity, principles, and goals should AI assist you?**
+
+```
+_telos/
+├── identity.md      # Who you are: role, core skills, career trajectory
+├── mission.md       # Mission & vision: north star direction
+├── goals.md         # Current OKR: quarterly updated goals
+├── beliefs.md       # Decision principles: core beliefs, AI's decision basis
+├── models.md        # Mental models: commonly used models, referenced by decision-helper
+├── strategies.md    # Strategies: current phase action strategies
+├── projects.md      # Project status: tracking all active projects
+├── worklog.md       # Work tracking: in-progress and queued items
+├── lessons.md       # Lessons learned: continuously appended, weekly-review extracts
+├── challenges.md    # Current challenges: periodically reviewed
+└── ideas.md         # Idea inbox
+```
+
+Design logic:
+
+- Each file focuses on a single dimension, following the atomicity principle
+- Files reference each other via Obsidian `[[wikilink]]`, forming a knowledge network
+- `identity.md` is the root node, other files revolve around it
+- AI loads summaries at startup, reads full files on demand for deeper context
+
+### Architecture Overview
+
+```mermaid
+graph TB
+    subgraph "Your Git Repo (Single Source of Truth)"
+        direction TB
+        subgraph TELOS["_telos/ Identity System"]
+            ID[identity.md<br/>Who I am]
+            GOALS[goals.md<br/>Current OKR]
+            BELIEFS[beliefs.md<br/>Decision Principles]
+            MISSION[mission.md<br/>Mission & Vision]
+            LESSONS[lessons.md<br/>Lessons Learned]
+            PROJECTS[projects.md<br/>Project Status]
+        end
+
+        subgraph AGENTS["_agents/ Multi-CLI Config Hub"]
+            IDENT_AGENT[identity.md<br/>Shared Identity Summary]
+            HOOKS[hooks/<br/>adapters + lib]
+            CMDS[commands/<br/>Slash Commands]
+            SYNC[sync.sh<br/>Config Sync]
+        end
+
+        JOURNAL["_journal/<br/>Daily Notes + Weekly Reviews"]
+    end
+
+    subgraph CLIS["AI CLI Tools"]
+        CLAUDE[Claude Code]
+        GEMINI[Gemini CLI]
+        OPENCODE[opencode]
+        CODEX[Codex CLI]
+    end
+
+    SYNC -->|Generate Config| CLIS
+    TELOS -->|Identity Context| AGENTS
+```
+
+### Three-Layer Memory System
+
+```mermaid
+graph LR
+    subgraph HOT["Hot Memory"]
+        H1[Current session context]
+        H2[Active task state]
+    end
+
+    subgraph WARM["Warm Memory"]
+        W1[_journal/daily/<br/>Daily Notes]
+        W2[_journal/weekly/<br/>Weekly Reviews]
+    end
+
+    subgraph COLD["Cold Memory"]
+        C1[_telos/<br/>Identity + Principles + Goals]
+        C2[knowledge/<br/>Tech Knowledge Base]
+    end
+
+    HOT -->|Session end<br/>session-end hook| WARM
+    WARM -->|weekly-review<br/>Extract lessons| COLD
+    COLD -->|session-start hook<br/>Load on startup| HOT
+```
+
+| Layer | Storage | Lifecycle | Write Method | Read Method |
+|-------|---------|-----------|-------------|-------------|
+| Hot | AI session context | Single session | Natural conversation | Immediately available |
+| Warm | `_journal/` daily/weekly | Day/Week | Hook auto-write + `/daily-log` | session-start loads today's note |
+| Cold | `_telos/` + `knowledge/` | Long-term | `/weekly-review` extraction + manual | session-start loads summary |
+
+### Multi-CLI Config Hub
+
+One set of source files, auto-generated into each CLI's config format via `sync.sh`:
+
+```mermaid
+graph LR
+    subgraph SOURCE["Source Files (_agents/)"]
+        ID2[identity.md]
+        SHARED[shared.md]
+        CS[claude-specific.md]
+        GS[gemini-specific.md]
+    end
+
+    subgraph GENERATED["Generated Config"]
+        CLAUDE_MD["~/.claude/CLAUDE.md"]
+        GEMINI_MD["~/.gemini/GEMINI.md"]
+        OPENCODE_MD["~/.config/opencode/AGENTS.md"]
+    end
+
+    ID2 --> CLAUDE_MD
+    SHARED --> CLAUDE_MD
+    CS --> CLAUDE_MD
+
+    ID2 --> GEMINI_MD
+    SHARED --> GEMINI_MD
+    GS --> GEMINI_MD
+
+    SYNC_SH[sync.sh generate] -.->|Concatenate| GENERATED
+```
+
+`sync.sh` subcommands:
+
+| Command | Function |
+|---------|----------|
+| `generate` | Concatenate source files to generate each CLI's config |
+| `link` | Create symlinks (skills, commands, hooks) |
+| `verify` | Health check (symlink integrity, config consistency) |
+| `all` | Backup → Generate → Link → Verify (one command) |
+
+### Hook System
+
+Hooks trigger actions at key points in the AI session lifecycle:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI as AI CLI
+    participant Hook as Hook System
+    participant Vault
+
+    Note over User,Vault: Session Start
+    CLI->>Hook: SessionStart
+    Hook->>Vault: Read daily note + goals + projects
+    Hook-->>CLI: Inject context
+
+    Note over User,Vault: Tool Call
+    CLI->>Hook: PreToolUse
+    Hook->>Hook: security-validator 3-level check
+    alt blocked
+        Hook-->>CLI: Block execution
+    else allowed
+        Hook-->>CLI: Allow
+    end
+
+    Note over User,Vault: Session End
+    CLI->>Hook: Stop
+    Hook->>Vault: Write session summary to daily note
+```
+
+### Security System
+
+`security-patterns.yaml` defines three-level security rules:
+
+```yaml
+blocked:   # Hard block, cannot bypass
+  - "rm -rf /"
+  - "rm -rf ~"
+  - "gh repo delete"
+
+confirm:   # Requires user confirmation
+  - "git push --force"
+  - "git reset --hard"
+
+alert:     # Log warning
+  - "curl|sh"
+```
+
 ## Quick Start
+
+### Prerequisites
+
+- At least one AI CLI tool (Claude Code / Gemini CLI / opencode / Codex CLI / Kimi)
+- Git
+- Optional: Obsidian 1.12+ (enhances the experience, not required)
 
 ### 1. Clone
 
@@ -78,7 +276,12 @@ cd ~/Documents/Obsidian\ Vault
 bash setup.sh
 ```
 
-The interactive setup takes about 2 minutes. It asks for your name, role, language preference, and vault path, then generates all configuration files.
+The interactive setup has two phases:
+
+- **Phase 1 (Basic config)**: Name, role, language, path, CLI selection (~1 minute)
+- **Phase 2 (Identity definition)**: Title, goals, capabilities, mission, challenges, projects (optional, ~2 minutes)
+
+Each step in Phase 2 can be skipped by pressing Enter — you can edit `_telos/` files manually later.
 
 For automated/CI environments:
 
@@ -178,6 +381,16 @@ Create a `.md` file in `_agents/commands/`, then run `_agents/sync.sh link` to s
 
 Install community skills into `_agents/skills/`, then run `_agents/sync.sh link`. Skills are domain-specific extensions (TDD, architecture patterns, etc.) that you install based on your needs.
 
+### Multi-device sync
+
+```bash
+# Deploy on a new device
+git clone <your-repo> "Obsidian Vault"
+cd "Obsidian Vault" && bash setup.sh
+```
+
+Use Git to sync. Recommended to pair with Obsidian's obsidian-git plugin for automatic sync.
+
 ## Included Skills
 
 | Skill | Description | Files |
@@ -188,6 +401,14 @@ Install community skills into `_agents/skills/`, then run `_agents/sync.sh link`
 | writing-plans | Structured planning workflow | 1 file |
 | token-efficiency | Token optimization practices | 1 file |
 | snapshot | State snapshot tool | 2 files |
+
+## Design Decisions
+
+**Why Obsidian instead of a database?** Markdown is the most durable format, no dependency on specific tools. Git version control = free time machine.
+
+**Why separate `_agents/` and `_telos/`?** `_telos/` is content (who you are), `_agents/` is infrastructure (how to deliver to AI CLIs). Separation of concerns — changing identity doesn't require touching config.
+
+**Why Shell for hooks?** Startup time < 100ms, zero extra dependencies, the logic is essentially "read files → concatenate strings → output".
 
 ## Philosophy
 
